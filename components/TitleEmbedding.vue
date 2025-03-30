@@ -39,6 +39,14 @@ const textures: { [key: string]: { url: string, data: any } } = {
 }
 const pointer = new THREE.Vector2();
 
+function gaussianRand() {
+    var rand = 0;
+    for (var i = 0; i < 6; i += 1) {
+        rand += Math.random();
+    }
+    return rand / 6;
+}
+
 onMounted(() => {
     const textureLoader = new THREE.TextureLoader()
     const texturePromises: Promise<any>[] = []
@@ -96,23 +104,45 @@ onMounted(() => {
             new Float32Array(n_particles * n_particles * 2),
             2,
         )
+        const posRand = new THREE.BufferAttribute(
+            new Float32Array(n_particles * n_particles * 4),
+            4,
+        )
+        const posRandX = new THREE.BufferAttribute(
+            new Float32Array(n_particles * n_particles),
+            1,
+        )
+        const posRandY = new THREE.BufferAttribute(
+            new Float32Array(n_particles * n_particles),
+            1,
+        )
+        const randX = Array.from({ length: n_particles }, () => Math.random())
+        const randY = Array.from({ length: n_particles }, () => Math.random())
         for (const x of Array(n_particles).keys()) {
             for (const y of Array(n_particles).keys()) {
                 const idx = x * n_particles + y;
                 positions.setXYZ(idx, (x / n_particles) * w - (w / 2), (y / n_particles) * h - (h / 2), 0.0)
                 imgCoords.setXY(idx, x, y)
-
+                posRand.setXYZW(idx, Math.random(), Math.random(), Math.random(), gaussianRand())
+                posRandX.setX(idx, randX[x])
+                posRandY.setX(idx, randY[y])
             }
         }
         geometry.setAttribute("position", positions)
         geometry.setAttribute("imgCoord", imgCoords)
+        geometry.setAttribute("posRand", posRand)
+        geometry.setAttribute("posRandX", posRandX)
+        geometry.setAttribute("posRandY", posRandY)
+        console.log(geometry.attributes)
         const material = new THREE.ShaderMaterial({
             fragmentShader: fragment,
             vertexShader: vertex,
             uniforms: {
-                time: { type: "f", value: sceneData.time },
-                t1: { type: "t", value: textures.particle.data },
-                t2: { type: "t", value: textures.img1.data },
+                time: { value: sceneData.time },
+                periodicTransform: { value: 0.0 },
+                periodicTransformTrailing: { value: 0.0 },
+                t1: { value: textures.particle.data },
+                t2: { value: textures.img1.data },
             },
             transparent: true,
         })
@@ -134,8 +164,16 @@ onMounted(() => {
 function animate() {
     sceneData.time += 1
     threeData.raycaster.setFromCamera(pointer, threeData.camera);
-    // sceneData.meshes[0].rotation.y = sceneData.time * 0.05
-    sceneData.particles.material.uniforms.time.value = sceneData.time
+
+    const periodicTransformScale = 1000.0
+    const periodicTransformStable = 0.2
+    // const periodicTransformP = Math.min(Math.max((((Math.sin(sceneData.time * (1 / periodicTransformScale)) + 1) / 2) - periodicTransformStable) / (1 - periodicTransformStable * 2), 0), 1)
+    // const periodicTransformPTrailing = Math.min(Math.max((((Math.sin((sceneData.time - 628) * (1 / periodicTransformScale)) + 1) / 2) - periodicTransformStable) / (1 - periodicTransformStable * 2), 0), 1)
+    const periodicTransformP = Math.sin(sceneData.time * (1 / periodicTransformScale)) * 0.5 + 0.5
+    const periodicTransformPTrailing = Math.sin((sceneData.time - 628) * (1 / periodicTransformScale)) * 0.5 + 0.5
+    sceneData.particles!.material.uniforms.time.value = sceneData.time
+    sceneData.particles!.material.uniforms.periodicTransform.value = periodicTransformP
+    sceneData.particles!.material.uniforms.periodicTransformTrailing.value = periodicTransformPTrailing
 
     const intersections = threeData.raycaster.intersectObjects([sceneData.mousePlane], false);
     let intersection = (intersections.length) > 0 ? intersections[0] : null;
@@ -160,7 +198,6 @@ function onPointerMove(event: MouseEvent) {
     const xScale = bb.width / w * 1.0
     pointer.x = (event.offsetX * xScale / bb.width) * 2 - 1;
     pointer.y = -((event.offsetY * xScale / bb.height) * 2 - 1);
-    console.log(pointer.x, pointer.y)
 }
 
 </script>

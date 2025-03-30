@@ -3,7 +3,13 @@ const vertex = /* glsl */ `
 varying vec2 vUv;
 varying vec2 vCoordinates;
 uniform float time;
+uniform float periodicTransform;
+uniform float periodicTransformTrailing;
 attribute vec2 imgCoord;
+attribute vec4 posRand;
+attribute float posRandX;
+attribute float posRandY;
+varying vec4 posRandV;
 
 // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash( uint x ) {
@@ -37,14 +43,70 @@ float random( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
 
 void main() {
     vUv = uv;
+    posRandV = posRand;
     
-    float randomizeProg = clamp(cos(time/100.0)*2.*0.5 + 0.5, -2., 1.);
+    vec2 flowStateRange = vec2(0.0, 0.5);
+    vec2 transitionStateRange = vec2(0.5, 0.7);
+    vec2 imgStateRange = vec2(0.7, 1.0);
+
+    float transformTime = (1.0 - posRand.z) * periodicTransform + (posRand.z * periodicTransformTrailing);
+
+    float flowState = step(flowStateRange.x, transformTime) * (1. - step(flowStateRange.y, transformTime));
+    float transitionState = step(transitionStateRange.x, transformTime) * (1. - step(transitionStateRange.y, transformTime));
+    float imageState = step(imgStateRange.x, transformTime) * (1. - step(imgStateRange.y, transformTime));
+    float transitionStateP = (transformTime - transitionStateRange.x) / (transitionStateRange.y - transitionStateRange.x);
+
+    float radius = 200. + (50. * (posRand.x * posRand.y - 0.5));
+    float spinTime = time / 100.;
+    vec3 positionFlowCircular = vec3(
+        sin(spinTime - posRand.z*6.28) * radius,
+        cos(spinTime - posRand.z*6.28) * radius,
+        0.0
+    );
+    vec3 positionFlowJitter = vec3(
+        sin(time/(30. * posRand.x + 30.) + posRand.x * 20.)*(10. * posRand.x + 5.),
+        cos(time/(30. * posRand.x + 30.) + posRand.x * 20.)*(10. * posRand.x + 5.),
+        0.0
+    );
+
+    float band = floor(posRand.y * 3. + 0.5) + 1.;
+    vec3 positionFlowWaves = vec3(
+        sin(time/300. - band*posRand.z*5.*6.28) * 20.,
+        cos(time/300. - band*posRand.z*5.*6.28) * 20.,
+        0.0
+    );
+
+    vec3 positionFlow = positionFlowCircular + positionFlowWaves;
+
+    vec3 positionImage = vec3(position.xy, 0.0);
+
+    vec3 transitionPos = vec3(
+        0.0 + 10.*posRand.x,
+        200. + 10.*posRand.y,
+        0.0
+    );
+
+    vec3 positionTransition = (
+        clamp(1.0 - transitionStateP*2., 0.0, 1.0) * positionFlow
+        + (1. - abs(transitionStateP*2. - 1.)) * transitionPos
+        + clamp(transitionStateP*2. - 1., 0.0, 1.0) * positionImage
+    );
+
+    vec3 positionPeriodic = vec3(
+        (transformTime*positionImage + (1. - transformTime)*positionFlow).xyz
+    );
+
+    
+    vec3 postionFinal = (
+        (flowState * positionFlow) + (transitionState * positionTransition) + (imageState * positionImage) + positionFlowJitter*(1.-periodicTransform)
+    );
+
     vec4 modelViewPosition = modelViewMatrix * vec4(
-        (randomizeProg)*position.x + ((1. - randomizeProg) * (random(vec2(random(position.xy), position.x))*1000. - 500.)),
-        (randomizeProg)*position.y + ((1. - randomizeProg) * (random(vec2(random(position.xy), position.y))*1000. - 500.)),
-        0.0,
+        postionFinal.xyz,
         1.0
     );
+
+
     gl_PointSize = 10000. * (1. / - modelViewPosition.z );
     gl_Position = projectionMatrix * modelViewPosition;
 

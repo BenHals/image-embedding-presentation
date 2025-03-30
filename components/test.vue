@@ -2,7 +2,7 @@
   <h1>{{ hello }}</h1>
 </template>
 
-<script>
+<script setup lang="ts">
 export default {
   setup() {
     const hello = ref('Hello!');

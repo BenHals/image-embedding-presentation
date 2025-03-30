@@ -3,7 +3,6 @@
 import { ref, onMounted, shallowRef } from 'vue'
 import * as geo from './geo.ts'
 
-
 interface SimulationState {
   rect_pos: geo.WorldPropPoint
 }
@@ -12,7 +11,7 @@ interface SimulationState {
 function createAnimation(): geo.Animation<SimulationState> {
   let stages: geo.AnimationStage<SimulationState>[] = []
   let curr_state = {
-    rect_pos: {x: 0.0, y: 0.0}
+    rect_pos: { x: 0.0, y: 0.0 }
   }
   let prev_p = 0.0
   let curr_p = 0.0
@@ -37,13 +36,13 @@ function createAnimation(): geo.Animation<SimulationState> {
 }
 
 let world = {
-  tl: {x: 0.0, y: 0.0},
+  tl: { x: 0.0, y: 0.0 },
   w: 0.0,
   h: 0.0,
 }
 
 let viewport = {
-  tl: {x: 0.0, y: 0.0},
+  tl: { x: 0.0, y: 0.0 },
   w: 0.0,
   h: 0.0,
   s: 1.0,
@@ -73,16 +72,16 @@ function handleResize() {
 onMounted(() => {
   handleResize()
   ctx.value = customCanvas.value!.getContext('2d')
-  customCanvas.value!.onmousedown = () => {handleDrag = true}
-  customCanvas.value!.onmouseup = () => {handleDrag = false}
+  customCanvas.value!.onmousedown = () => { handleDrag = true }
+  customCanvas.value!.onmouseup = () => { handleDrag = false }
   customCanvas.value!.onmousemove = (e: MouseEvent) => {
     if (!handleDrag) return;
-    viewport.tl.x += -e.movementX * 1/geo.viewportScaling(viewport);
-    viewport.tl.y += -e.movementY * 1/geo.viewportScaling(viewport);
+    viewport.tl.x += -e.movementX * 1 / geo.viewportScaling(viewport);
+    viewport.tl.y += -e.movementY * 1 / geo.viewportScaling(viewport);
     draw(sim(prog.value));
   }
 
-  customCanvas.value!.onwheel = (e) => {viewport.s += e.deltaY * 0.001; draw(sim(prog.value))}
+  customCanvas.value!.onwheel = (e) => { viewport.s += e.deltaY * 0.001; draw(sim(prog.value)) }
   draw(sim(prog.value))
 })
 
@@ -98,7 +97,7 @@ function sim(p: number): SimulationState {
     x: (1 - stage_p) * prev_stage.state.rect_pos.x + stage_p * curr_stage.state.rect_pos.x,
     y: (1 - stage_p) * prev_stage.state.rect_pos.y + stage_p * curr_stage.state.rect_pos.y,
   }
-  
+
   return {
     rect_pos: rect_world_prop_pos
   }
@@ -111,7 +110,7 @@ function draw(state: SimulationState) {
   ctx.value!.setTransform(geo.viewportScaling(viewport), 0, 0, geo.viewportScaling(viewport), world_vp.x, world_vp.y)
 
   let rect_wp = geo.toWorldAbsolute(state.rect_pos, world)
-  ctx.value?.fillRect(rect_wp.x, rect_wp.y, 0.1*world.w, 0.1*world.w)
+  ctx.value?.fillRect(rect_wp.x, rect_wp.y, 0.1 * world.w, 0.1 * world.w)
 
   ctx.value!.strokeRect(world.tl.x, world.tl.y, world.w, world.h)
 }
